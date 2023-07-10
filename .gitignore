@@ -1,0 +1,9 @@
+# Dara
+data
+
+# Environments
+.env
+sss_env
+
+# Install
+*.egg-info
