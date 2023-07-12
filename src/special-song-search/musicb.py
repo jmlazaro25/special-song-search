@@ -59,6 +59,8 @@ def get_artists_from_country(country_code: str, offset: int, artists_limit: int,
         page_artists = page['artist-list']
         artists += page_artists
 
+    
+
     return pd.DataFrame(artists)
 
 def get_artist_info(artist_mbid: str, verbose: bool = False) -> pd.DataFrame:
@@ -69,7 +71,7 @@ def get_artist_info(artist_mbid: str, verbose: bool = False) -> pd.DataFrame:
 
 def artist_flattened(artist: dict[str, dict]) -> dict[str, str]:
     artist_flat = dict()
-    keys_to_keep = ('id', 'type', 'name', 'disambiguation', 'sort-name', 'gender', 'country', 'life-span', 'tag-list', 'rating')
+    artist_keys_to_keep = ('id', 'type', 'name', 'disambiguation', 'sort-name', 'gender', 'country', 'life-span', 'tag-list', 'rating')
     for key, value in  artist['artist'].items():
         if key in keys_to_keep:
             if isinstance(value, str):
