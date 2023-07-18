@@ -34,6 +34,15 @@ class Artist(Base):
     recordings: Mapped[set[Recording]] = relationship(
         secondary=artist_recording_association, back_populates='artists'
     )
+    name: Mapped[str | None] = mapped_column(String(40))
+    disambiguation: Mapped[str | None] = mapped_column(String(80))
+    type: Mapped[str | None] = mapped_column(String(40))
+    gender: Mapped[str | None] = mapped_column(String(40))
+    country: Mapped[str | None] = mapped_column(String(40))
+    life_span_begin: Mapped[str | None] = mapped_column(String(10))
+    life_span_end: Mapped[str | None] = mapped_column(String(10))
+    rating_votes: Mapped[int | None] = mapped_column()
+    rating: Mapped[float | None] = mapped_column()
 
 
 class Recording(Base):
@@ -44,18 +53,28 @@ class Recording(Base):
     artists: Mapped[set[Artist]] = relationship(
         secondary=artist_recording_association, back_populates='recordings'
     )
+    title: Mapped[str | None] = mapped_column(String(40))
+    disambiguation: Mapped[str | None] = mapped_column(String(80))
+    length: Mapped[int | None] = mapped_column()
+    date: Mapped[str | None] = mapped_column(String(10))
+    rating_votes: Mapped[int | None] = mapped_column()
+    rating: Mapped[float | None] = mapped_column()
+    release_status: Mapped[str | None] = mapped_column(String(40))
 
 class ArtistTag(Base):
     __tablename__ = 'artist_tag'
 
     artist_mbid: Mapped[str] = mapped_column(String(40), ForeignKey('artist.mbid'), primary_key=True)
-    tag: Mapped[str] = mapped_column(String(40), primary_key=True)
     artist: Mapped[Artist] = relationship(back_populates='tags')
+    tag: Mapped[str] = mapped_column(String(40), primary_key=True)
+    tag_votes: Mapped[int] = mapped_column()
+
 
 class RecordingTag(Base):
     __tablename__ = 'recording_tag'
 
     recording_mbid: Mapped[str] = mapped_column(String(40), ForeignKey('recording.mbid'), primary_key=True)
-    tag: Mapped[str] = mapped_column(String(40), primary_key=True)
     recording: Mapped[Recording] = relationship(back_populates='tags')
+    tag: Mapped[str] = mapped_column(String(40), primary_key=True)
+    tag_votes: Mapped[int] = mapped_column()
 
