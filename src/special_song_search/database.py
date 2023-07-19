@@ -205,14 +205,17 @@ def fill_artist_recordings(
     # Commits in loop slow, but limiting factor is API rate
     # Don't want to have to redo valid adds which requires recalling API
     for recording_row, tag_rows in zip(recording_rows, recording_tag_rows):
-        artist.recordings.add(recording_row)
-        session.commit()
         try:
-            session.add(recording_row)
+            artist.recordings.add(recording_row)
             session.add_all(tag_rows)
             session.commit()
         except IntegrityError:
-            print(f'Tried to add existing recording: {recording_row}')
+            session.rollback()
+            recording = session.execute(
+                select(Recording).where(Recording.mbid == recording_row.mbid)
+            ).scalar()
+            artist.recordings.add(recording)
+            session.commit()
 
     return
 
