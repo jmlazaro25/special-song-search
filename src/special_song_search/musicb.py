@@ -59,7 +59,8 @@ def get_artists_from_country(
         offset: int = 0,
         verbose: bool = False
     ) -> list[tuple]:
-    n_pages = n_artists // SEARCH_BROWSE_LIMIT + min(n_artists % SEARCH_BROWSE_LIMIT, 1)
+    n_pages = max(1, n_artists // SEARCH_BROWSE_LIMIT)
+    limit = n_artists if n_pages == 1 else SEARCH_BROWSE_LIMIT
 
     artists = []
     for page_n in range(n_pages):
@@ -68,8 +69,8 @@ def get_artists_from_country(
         page = musicbrainzngs.search_artists(
             query='',
             country=country_code,
-            offset=offset + page_n * SEARCH_BROWSE_LIMIT,
-            limit=SEARCH_BROWSE_LIMIT
+            offset=offset + page_n * limit,
+            limit=limit
         )
         page_artists = page['artist-list']
         artists += page_artists
@@ -121,9 +122,11 @@ def get_artist_recordings(
     includes = ['artist-credits', 'tags', 'ratings']
 
     if n_recordings != -1 and n_recordings < MAX_ARTIST_RECORDINGS:
-        n_pages = n_recordings // SEARCH_BROWSE_LIMIT + min(n_recordings % SEARCH_BROWSE_LIMIT, 1)
+        n_pages = max(1, n_recordings // SEARCH_BROWSE_LIMIT)
     else:
         n_pages = MAX_ARTIST_RECORDINGS // SEARCH_BROWSE_LIMIT
+
+    limit = n_recordings if n_pages == 1 else SEARCH_BROWSE_LIMIT
 
     recordings = []
     for page_n in range(n_pages):
@@ -132,8 +135,8 @@ def get_artist_recordings(
         page = musicbrainzngs.browse_recordings(
             artist=artist_mbid,
             includes=includes,
-            offset=page_n * SEARCH_BROWSE_LIMIT,
-            limit=SEARCH_BROWSE_LIMIT
+            offset=page_n * limit,
+            limit=limit
         )
         page_recordings = page['recording-list']
         recordings += page_recordings
