@@ -25,7 +25,7 @@ def recommend(
         randomness: float = 1.,
         random_normal: float = 2.**64,
         limit: int = 10
-    ) -> list[RowMapping]:
+    ) -> list[dict]:
 
     artist_tags_score = 0.0
     for tag, tag_weight in artist_tags.items():
@@ -62,8 +62,17 @@ def recommend(
 
     results = session.execute(statement).fetchall()
     row_mappings = [row._mapping for row in results]
+    recommendations = [
+        {
+            'score': row_mapping['score'],
+            'recording': row_mapping['Recording'].__dict__,
+            'artists': [artist.__dict__ for artist in row_mapping['Recording'].artists],
+            'recording_tags': [tag.__dict__ for tag in row_mapping['Recording'].tags]
+        }
+        for row_mapping in row_mappings
+    ]
 
-    return row_mappings
+    return recommendations
 
 def get_tag_options(session, tag_type: str) -> list[str]:
     if tag_type == 'artist':
