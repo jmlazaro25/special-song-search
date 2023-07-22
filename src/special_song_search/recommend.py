@@ -9,7 +9,7 @@ from sqlalchemy.engine.row import RowMapping
 
 from special_song_search.database import init_db
 from special_song_search.models import (
-    artist_recording_association
+    artist_recording_association,
     Artist, ArtistTag,
     Recording, RecordingTag
 )
@@ -64,4 +64,12 @@ def recommend(
     row_mappings = [row._mapping for row in results]
 
     return row_mappings
+
+def get_tag_options(session, tag_type: str) -> list[str]:
+    if tag_type == 'artist':
+        table = ArtistTag
+    elif tag_type == 'recording':
+        table == RecordingTag
+    results = session.execute(select(table.tag).distinct()).fetchall()
+    return [result[0] for result in results]
 
