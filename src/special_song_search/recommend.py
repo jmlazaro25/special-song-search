@@ -78,7 +78,7 @@ def get_tag_options(session, tag_type: str) -> list[str]:
     if tag_type == 'artist':
         table = ArtistTag
     elif tag_type == 'recording':
-        table == RecordingTag
+        table = RecordingTag
     results = session.execute(select(table.tag).distinct()).fetchall()
     return [result[0] for result in results]
 
