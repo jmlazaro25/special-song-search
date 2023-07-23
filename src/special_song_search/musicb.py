@@ -8,10 +8,12 @@ from dotenv import load_dotenv
 from os import environ
 
 
-# API LIMITS
+# API LIMITS and links
 RATE = 1.0
 NEW_REQUESTS = 1
 SEARCH_BROWSE_LIMIT = 100
+RECORDING_PERM_LINK = 'https://musicbrainz.org/recording/{}'
+LISTEN_LINK = 'https://listenbrainz.org/player/?recording_mbids={}'
 
 # SELF LIMITS (used to not spend too much time on any one artist)
 MAX_ARTIST_RECORDINGS = 5000
