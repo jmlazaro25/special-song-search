@@ -3,6 +3,15 @@ from PIL import Image
 
 import special_song_search as sss
 
+# Reused strings
+ARTIST = 'artist'
+RECORDING = 'recording'
+ARTIST_TAGS = 'artist_tags'
+RECORDING_TAGS = 'recording_tags'
+ARTIST_TAGS_WEIGHT = 'artist_tags_weight'
+RECORDING_TAGS_WEIGHT = 'recording_tags_weight'
+RECOMMENDATIONS = 'recommendations'
+
 
 def main() -> None:
 
@@ -59,46 +68,19 @@ def main() -> None:
             st.header('Options')
 
             # Artist Tags
-            st.subheader('Artist Tags')
-            st.number_input(
-                label='Total Artist Tags Weight',
-                key='artist_tags_weight'
-            )
-            if 'artist_tags' not in st.session_state:
-                st.session_state['artist_tags'] = 0
-
-            for n in range(st.session_state['artist_tags']):
-                display_tag(sql_session, 'artist', n)
-
-            st.button('Add Atrist Tag', on_click=increase_artist_tags)
-            st.divider()
+            display_tags(sql_session, ARTIST)
 
             # Recording Tags
-            st.subheader('Recording Tags')
-            st.number_input(
-                label='Total Recording Tags Weight',
-                key='recording_tags_weight'
-            )
-            if 'recording_tags' not in st.session_state:
-                st.session_state['recording_tags'] = 0
-
-            for n in range(st.session_state['recording_tags']):
-                display_tag(sql_session, 'recording', n)
-
-            st.button('Add Recording Tag', on_click=increase_recording_tags)
-            st.divider()
+            display_tags(sql_session, RECORDING)
 
             # Other recording params
 
             # Submit
-            st.button(
-                'Submit',
-                on_click=lambda: get_recommendations(sql_session, st.session_state)
-            )
+            st.button('Submit', on_click=lambda: get_recommendations(sql_session))
 
         with col_2:
             st.header('Recommendations')
-            if 'recommendations' in st.session_state:
+            if RECOMMENDATIONS in st.session_state:
                 display_recommendations()
 
     st.divider()
@@ -115,48 +97,80 @@ def init_sql_session():
 def get_tag_options_cached(_session, tag_type):
     return sss.recommend.get_tag_options(_session, tag_type)
 
-def increase_artist_tags():
-    st.session_state['artist_tags'] += 1
+def increase_tags(tags):
+    if not st.session_state[tags]:
+        st.session_state[tags] = [1]
+    else:
+        st.session_state[tags].append(st.session_state[tags][-1] + 1)
 
-def increase_recording_tags():
-    st.session_state['recording_tags'] += 1
+def display_tags(session, tag_type):
 
-def display_tag(session, tag_type, index):
-    tag, weight, rm = st.columns((4, 1, 0.5))
-    options = get_tag_options_cached(session, tag_type)
-    label_vis = 'visible' if index == 0 else 'collapsed'
-    tag.selectbox(
-        label='Tag',
-        options=options,
-        key=f'{tag_type}_tag_{index}',
-        placeholder='tag',
-        label_visibility=label_vis
-        )
-    weight.number_input(
-        label='Weight',
-        key=f'{tag_type}_weight_{index}',
-        label_visibility=label_vis
-        )
-    rm.button(':no_entry:', key=f'{tag_type}_rm_{index}', on_click=None)
+    def display_tag(tag_num):
+        tag, weight, rm = st.columns((4, 1, 0.5))
+        options = get_tag_options_cached(session, tag_type)
+        label_vis = 'visible' if tag_num == 0 else 'collapsed'
+        tag.selectbox(
+            label='Tag',
+            options=options,
+            key=f'{tag_type}_tag_{tag_num}',
+            placeholder='tag',
+            label_visibility=label_vis
+            )
+        weight.number_input(
+            label='Weight',
+            key=f'{tag_type}_weight_{tag_num}',
+            label_visibility=label_vis
+            )
+        def del_tag():
+            del st.session_state[f'{tag_type}_tag_{tag_num}']
+            del st.session_state[f'{tag_type}_weight_{tag_num}']
+        rm.button(':no_entry:', key=f'rm_{tag_type}_{tag_num}', on_click=del_tag)
+
+    if tag_type == ARTIST:
+        tags = ARTIST_TAGS
+        weight = ARTIST_TAGS_WEIGHT
+    elif tag_type == RECORDING:
+        tags = RECORDING_TAGS
+        weight = RECORDING_TAGS_WEIGHT
+
+    st.subheader(f'{tag_type} tags'.title())
+    st.number_input(
+        label=f'total {tag_type} tags weight'.title(),
+        key=weight
+    )
+
+    if tags not in st.session_state:
+        st.session_state[tags] = []
+
+    for n in st.session_state[tags]:
+        display_tag(tag_num=n)
+
+    st.button(f'add {tag_type} tag'.title(), on_click=lambda: increase_tags(tags))
+    st.divider()
 
 #@st.cache_data
-def get_recommendations(_session, _session_state):
-    st.session_state['recommendations'] = \
+def get_recommendations(_session):
+    def get_tags(tag_type):
+        if tag_type == ARTIST:
+            tags = ARTIST_TAGS
+        elif tag_type == RECORDING:
+            tags = RECORDING_TAGS
+        return {
+            st.session_state[f'{tag_type}_tag_{tag_num}']:
+            st.session_state[f'{tag_type}_weight_{tag_num}']
+            for tag_num in st.session_state[tags]
+        }
+
+    st.session_state[RECOMMENDATIONS] = \
         sss.recommend.recommend(
             _session,
-            artist_tags = {
-                key: weight for key, weight in st.session_state.items()
-                if key.startswith('artist_tag')
-            },
-            recording_tags = {
-                key: weight for key, weight in st.session_state.items()
-                if key.startswith('recording_tag')
-            },
+            artist_tags = get_tags(ARTIST),
+            recording_tags = get_tags(RECORDING),
             recording_length = tuple(),
             weights = {
                 key: st.session_state[f'{key}_weight'] for key in (
-                'artist_tags',
-                'recording_tags'
+                ARTIST_TAGS,
+                RECORDING_TAGS
                 ) if f'{key}_weight' in st.session_state
                 },
             randomness = 1.,
@@ -164,10 +178,10 @@ def get_recommendations(_session, _session_state):
         )
 
 def display_recommendations():
-    for rec in st.session_state['recommendations']:
+    for n, rec in enumerate(st.session_state[RECOMMENDATIONS]):
         st.divider()
-        st.markdown(f"##### {rec['recording']['title']}")
-        st.text(f"Score: {rec['score']}")
+        st.markdown(f"##### {n}. {rec['recording']['title']}")
+        st.text(f"Score: {rec['score']:.2f}")
         st.text(', '.join([artist['name'] for artist in rec['artists']]))
         st.markdown(f"""
         [MusicBrainz]({sss.musicb.RECORDING_PERM_LINK.format(rec['recording']['mbid'])})
