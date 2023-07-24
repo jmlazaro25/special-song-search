@@ -37,7 +37,6 @@ rich==13.4.2
 rpds-py==0.9.2
 six==1.16.0
 smmap==5.0.0
--e git+ssh://git@github.com/jmlazaro25/special-song-search.git@883c8abb95baace49d8d435e12e64b76ce5ce0f4#egg=special_song_search
 SQLAlchemy==2.0.19
 streamlit==1.25.0
 tenacity==8.2.2
