@@ -115,7 +115,7 @@ def increase_tags(tags):
 
 def display_tags(session, tag_type):
 
-    def display_tag(tag_num):
+    def display_tag(tag_num, tags_str):
         tag, weight, rm = st.columns((4, 1, 0.5))
         options = get_tag_options_cached(session, tag_type)
         label_vis = 'visible' if tag_num == 0 else 'collapsed'
@@ -135,6 +135,7 @@ def display_tags(session, tag_type):
         def del_tag():
             del st.session_state[f'{tag_type}_tag_{tag_num}']
             del st.session_state[f'{tag_type}_weight_{tag_num}']
+            st.session_state[tags_str].remove(tag_num)
         rm.button(':no_entry:', key=f'rm_{tag_type}_{tag_num}', on_click=del_tag)
 
     if tag_type == ARTIST:
@@ -155,7 +156,7 @@ def display_tags(session, tag_type):
         st.session_state[tags] = []
 
     for n in st.session_state[tags]:
-        display_tag(tag_num=n)
+        display_tag(tag_num=n, tags_str=tags)
 
     st.button(f'add {tag_type} tag'.title(), on_click=lambda: increase_tags(tags))
     st.divider()
