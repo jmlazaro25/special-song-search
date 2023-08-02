@@ -1,5 +1,6 @@
 import streamlit as st
 from PIL import Image
+from datetime import time, timedelta
 
 import special_song_search as sss
 
@@ -11,6 +12,27 @@ RECORDING_TAGS = 'recording_tags'
 ARTIST_TAGS_WEIGHT = 'artist_tags_weight'
 RECORDING_TAGS_WEIGHT = 'recording_tags_weight'
 RECOMMENDATIONS = 'recommendations'
+
+EXPLAIN_TEXT = """
+    Motivation:
+        Existing song recomendation services:
+        - Use stubborn collaborative models which are slow to learn your individual preferences
+        - Make repeated suggestions too often which also limits discovery potential
+        - Collect personal data
+
+    Build:
+        1. Artist and recording metadata are collected from the MusicBrainz API.
+        2. Data is stored database-agnostically via SQLalchemy (see schema below).
+        3. Values entered on this webpage are used to query recordings from the database.
+            - This includes selecting a score which is a linear sum of match values plus a random factor which will also be exposed to the user.
+
+    Usage:
+        1. Add any number of artist-related or recording-related tags you like.
+        2. Give each tag as well as each category a weight.
+            - They do not need to be on any particular scale but should be relative to each other for best results.
+        3. Submit at the bottom of the "Options" column.
+        4. Stay tuned for more options like recording length and number of recommendations.
+    """
 
 
 def main() -> None:
@@ -32,27 +54,8 @@ def main() -> None:
 
     st.title('Special Song Search')
 
-    with st.expander("How Special Song Search works:"):
-        st.text("""
-        Motivation:
-            Existing song recomendation services:
-            - Use stubborn collaborative models which are slow to learn your individual preferences
-            - Make repeated suggestions too often which also limits discovery potential
-            - Collect personal data
-
-        Build:
-            1. Artist and recording metadata are collected from the MusicBrainz API.
-            2. Data is stored database-agnostically via SQLalchemy (see schema below).
-            3. Values entered on this webpage are used to query recordings from the database.
-                - This includes selecting a score which is a linear sum of match values plus a random factor which will also be exposed to the user.
-
-        Usage:
-            1. Add any number of artist-related or recording-related tags you like.
-            2. Give each tag as well as each category a weight.
-                - They do not need to be on any particular scale but should be relative to each other for best results.
-            3. Submit at the bottom of the "Options" column.
-            4. Stay tuned for more options like recording length and number of recommendations.
-        """)
+    with st.expander('How Special Song Search works:'):
+        st.text(EXPLAIN_TEXT)
         st.markdown(
         """[Github repository](https://github.com/jmlazaro25/special-song-search)""",
         unsafe_allow_html=True
@@ -67,6 +70,9 @@ def main() -> None:
         with col_1:
             st.header('Options')
 
+            # Official Releases Filter
+            st.checkbox('Officially Released Only', True, key='official_only')
+
             # Artist Tags
             display_tags(sql_session, ARTIST)
 
@@ -74,6 +80,10 @@ def main() -> None:
             display_tags(sql_session, RECORDING)
 
             # Other recording params
+            with st.expander('More'):
+
+                display_recording_length()
+                display_recording_date()
 
             # Submit
             st.button('Submit', on_click=lambda: get_recommendations(sql_session))
@@ -118,6 +128,7 @@ def display_tags(session, tag_type):
             )
         weight.number_input(
             label='Weight',
+            value=0,
             key=f'{tag_type}_weight_{tag_num}',
             label_visibility=label_vis
             )
@@ -136,6 +147,7 @@ def display_tags(session, tag_type):
     st.subheader(f'{tag_type} tags'.title())
     st.number_input(
         label=f'total {tag_type} tags weight'.title(),
+        value=1,
         key=weight
     )
 
@@ -180,13 +192,83 @@ def get_recommendations(_session):
 def display_recommendations():
     for n, rec in enumerate(st.session_state[RECOMMENDATIONS]):
         st.divider()
-        st.markdown(f"##### {n}. {rec['recording']['title']}")
+        st.markdown(f"##### {n + 1}. {rec['recording']['title']}")
         st.text(f"Score: {rec['score']:.2f}")
         st.text(', '.join([artist['name'] for artist in rec['artists']]))
         st.markdown(f"""
         [MusicBrainz]({sss.musicb.RECORDING_PERM_LINK.format(rec['recording']['mbid'])})
         [ListenBrainz]({sss.musicb.LISTEN_LINK.format(rec['recording']['mbid'])})
         """)
+
+def display_recording_length():
+    st.subheader('Recording Length')
+    recording_length_radio = st.radio(
+        'Condition',
+        ['range', 'center'],
+        key='recording_length_condition',
+    )
+    if recording_length_radio == 'center':
+        st.info(
+            ''':information_source: Reduces recordings' scores by "Points per second"
+            for each second shorter or longer than the "Center" time'''
+        )
+        st.slider(
+            'Recording Length Center:',
+            time(0,0), time(0,10),
+            time(0,3,30),
+            step=timedelta(seconds=1),
+            format='m:ss',
+            key='recording_length_center'
+        )
+        st.number_input(
+            'Points per second',
+            value=1,
+            key='points_per_second'
+        )
+    elif recording_length_radio == 'range':
+        st.info(''':information_source: Filters out ALL recordings outside stated range''')
+        st.slider(
+            'Recording Length Range:',
+            time(0,0), time(0,10),
+            (time(0,0), time(0,10)),
+            step=timedelta(seconds=1),
+            format='m:ss',
+            key='recording_length_range',
+        )
+        st.checkbox('Enforce max recording length', value=True, key='max_record_length')
+
+def display_recording_date():
+    st.subheader('Recording Year')
+    recording_date_radio = st.radio(
+        'Condition',
+        ['range', 'center'],
+        key='recording_date_condition',
+    )
+    if recording_date_radio == 'center':
+        st.info(
+            ''':information_source: Reduces recordings' scores by "Points per year"
+            for each year before or after "Center" year'''
+        )
+        st.slider(
+            'Recording Year Center:',
+            1900, 2025,
+            2020,
+            key='recording_date_center'
+        )
+        st.number_input(
+            'Points per year',
+            value=1,
+            key='points_per_year'
+        )
+    elif recording_date_radio == 'range':
+        st.info(''':information_source: Filters out ALL recordings outside stated range''')
+        st.slider(
+            'Recording Date Range:',
+            1900, 2025,
+            (1900, 2025),
+            key='recording_date_range'
+        )
+        st.checkbox('Enforce max recording year', value=True, key='max_recording_date')
 
 def clear():
     for key in st.session_state:
