@@ -40,14 +40,19 @@ def recommend(
         recording_tags_score += func.abs(Recording.length - recording_length[0])
 
     score  = (
-        func.cast(func.random()/random_normal * randomness, Float)
+        func.cast(0, Float) # sqlalchemy func needed for label
         + artist_tags_score * weights.get('artist_tags', 0.0)
         + recording_tags_score * weights.get('recording_tags', 0.0)
         + recording_length_score * weights.get('recording_length', 0.0)
         #+ recording_dates_score * weights.get('recording_dates', 0.0)
     ).label('score')
 
-    statement = select(Recording, score)
+    filter_score = (
+        score
+        + func.cast(func.random()/random_normal * randomness, Float)
+    ).label('filter_score')
+
+    statement = select(Recording, score, filter_score)
     if 'artist_tags' in weights:
         statement = statement\
             .join(artist_recording_association,
@@ -58,12 +63,13 @@ def recommend(
         statement = statement.join(RecordingTag)
 
     limit = limit if limit < 100 else 100
-    statement = statement.order_by(score.desc()).limit(limit)
+    statement = statement.order_by(filter_score.desc()).limit(limit)
 
     results = session.execute(statement).fetchall()
     row_mappings = [row._mapping for row in results]
     recommendations = [
         {
+            'filter_score': row_mapping['filter_score'],
             'score': row_mapping['score'],
             'recording': row_mapping['Recording'].__dict__,
             'artists': [artist.__dict__ for artist in row_mapping['Recording'].artists],
