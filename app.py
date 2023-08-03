@@ -12,6 +12,13 @@ RECORDING_TAGS = 'recording_tags'
 ARTIST_TAGS_WEIGHT = 'artist_tags_weight'
 RECORDING_TAGS_WEIGHT = 'recording_tags_weight'
 RECOMMENDATIONS = 'recommendations'
+RECORDING_LENGTH = 'recording_length'
+RECORDING_DATE = 'recording_date'
+CONDITION = 'condition'
+RANGE = 'range'
+CENTER = 'center'
+POINTS_PER_SECOND = 'points_per_second'
+POITNS_PER_YEAR = 'points_per_year'
 
 EXPLAIN_TEXT = """
     Motivation:
@@ -81,7 +88,6 @@ def main() -> None:
 
             # Other recording params
             with st.expander('More'):
-
                 display_recording_length()
                 display_recording_date()
 
@@ -107,6 +113,51 @@ def init_sql_session():
 def get_tag_options_cached(_session, tag_type):
     return sss.recommend.get_tag_options(_session, tag_type)
 
+def get_recommendations(_session):
+    def get_tags(tag_type):
+        if tag_type == ARTIST:
+            tags = ARTIST_TAGS
+        elif tag_type == RECORDING:
+            tags = RECORDING_TAGS
+        return {
+            st.session_state[f'{tag_type}_tag_{tag_num}']:
+            st.session_state[f'{tag_type}_weight_{tag_num}']
+            for tag_num in st.session_state[tags]
+        }
+
+    if st.session_state[f'{RECORDING_LENGTH}_{CONDITION}']:
+        pass
+
+    if st.session_state[f'{RECORDING_DATE}_{CONDITION}']:
+        pass
+
+    st.session_state[RECOMMENDATIONS] = \
+        sss.recommend.recommend(
+            _session,
+            artist_tags = get_tags(ARTIST),
+            recording_tags = get_tags(RECORDING),
+            recording_length = tuple(),
+            weights = {
+                key: st.session_state[f'{key}_weight'] for key in (
+                ARTIST_TAGS,
+                RECORDING_TAGS
+                ) if f'{key}_weight' in st.session_state
+                },
+            randomness = 1.,
+            limit = 10
+        )
+
+def display_recommendations():
+    for n, rec in enumerate(st.session_state[RECOMMENDATIONS]):
+        st.divider()
+        st.markdown(f"##### {n + 1}. {rec['recording']['title']}")
+        st.text(f"Score: {rec['score']:.2f}")
+        st.text(', '.join([artist['name'] for artist in rec['artists']]))
+        st.markdown(f"""
+        [MusicBrainz]({sss.musicb.RECORDING_PERM_LINK.format(rec['recording']['mbid'])})
+        [ListenBrainz]({sss.musicb.LISTEN_LINK.format(rec['recording']['mbid'])})
+        """)
+
 def increase_tags(tags):
     if not st.session_state[tags]:
         st.session_state[tags] = [1]
@@ -118,7 +169,9 @@ def display_tags(session, tag_type):
     def display_tag(tag_num, tags_str):
         tag, weight, rm = st.columns((4, 1, 0.5))
         options = get_tag_options_cached(session, tag_type)
-        label_vis = 'visible' if tag_num == 0 else 'collapsed'
+        # Should be checking if tag_num == st.session_state[tags][0] to display
+        # labels for first tag, but is unaligned, so don't display until styled
+        label_vis = 'visible' if tag_num == None else 'collapsed'
         tag.selectbox(
             label='Tag',
             options=options,
@@ -161,54 +214,26 @@ def display_tags(session, tag_type):
     st.button(f'add {tag_type} tag'.title(), on_click=lambda: increase_tags(tags))
     st.divider()
 
-#@st.cache_data
-def get_recommendations(_session):
-    def get_tags(tag_type):
-        if tag_type == ARTIST:
-            tags = ARTIST_TAGS
-        elif tag_type == RECORDING:
-            tags = RECORDING_TAGS
-        return {
-            st.session_state[f'{tag_type}_tag_{tag_num}']:
-            st.session_state[f'{tag_type}_weight_{tag_num}']
-            for tag_num in st.session_state[tags]
-        }
-
-    st.session_state[RECOMMENDATIONS] = \
-        sss.recommend.recommend(
-            _session,
-            artist_tags = get_tags(ARTIST),
-            recording_tags = get_tags(RECORDING),
-            recording_length = tuple(),
-            weights = {
-                key: st.session_state[f'{key}_weight'] for key in (
-                ARTIST_TAGS,
-                RECORDING_TAGS
-                ) if f'{key}_weight' in st.session_state
-                },
-            randomness = 1.,
-            limit = 10
-        )
-
-def display_recommendations():
-    for n, rec in enumerate(st.session_state[RECOMMENDATIONS]):
-        st.divider()
-        st.markdown(f"##### {n + 1}. {rec['recording']['title']}")
-        st.text(f"Score: {rec['score']:.2f}")
-        st.text(', '.join([artist['name'] for artist in rec['artists']]))
-        st.markdown(f"""
-        [MusicBrainz]({sss.musicb.RECORDING_PERM_LINK.format(rec['recording']['mbid'])})
-        [ListenBrainz]({sss.musicb.LISTEN_LINK.format(rec['recording']['mbid'])})
-        """)
-
 def display_recording_length():
     st.subheader('Recording Length')
     recording_length_radio = st.radio(
         'Condition',
         ['range', 'center'],
-        key='recording_length_condition',
+        key=f'{RECORDING_LENGTH}_{CONDITION}',
     )
-    if recording_length_radio == 'center':
+
+    if recording_length_radio == RANGE:
+        st.info(''':information_source: Filters out ALL recordings outside stated range''')
+        st.slider(
+            'Recording Length Range:',
+            time(0,0), time(0,10),
+            (time(0,0), time(0,10)),
+            step=timedelta(seconds=1),
+            format='m:ss',
+            key=f'{RECORDING_LENGTH}_{RANGE}',
+        )
+        st.checkbox('Enforce max recording length', value=True, key='max_recording_length')
+    elif recording_length_radio == CENTER:
         st.info(
             ''':information_source: Reduces recordings' scores by "Points per second"
             for each second shorter or longer than the "Center" time'''
@@ -219,33 +244,32 @@ def display_recording_length():
             time(0,3,30),
             step=timedelta(seconds=1),
             format='m:ss',
-            key='recording_length_center'
+            key=f'{RECORDING_LENGTH}_{CENTER}'
         )
         st.number_input(
             'Points per second',
             value=1,
-            key='points_per_second'
+            key=POINTS_PER_SECOND
         )
-    elif recording_length_radio == 'range':
-        st.info(''':information_source: Filters out ALL recordings outside stated range''')
-        st.slider(
-            'Recording Length Range:',
-            time(0,0), time(0,10),
-            (time(0,0), time(0,10)),
-            step=timedelta(seconds=1),
-            format='m:ss',
-            key='recording_length_range',
-        )
-        st.checkbox('Enforce max recording length', value=True, key='max_record_length')
 
 def display_recording_date():
     st.subheader('Recording Year')
     recording_date_radio = st.radio(
         'Condition',
         ['range', 'center'],
-        key='recording_date_condition',
+        key=f'{RECORDING_DATE}_{CONDITION}',
     )
-    if recording_date_radio == 'center':
+
+    if recording_date_radio == RANGE:
+        st.info(''':information_source: Filters out ALL recordings outside stated range''')
+        st.slider(
+            'Recording Date Range:',
+            1900, 2025,
+            (1900, 2025),
+            key=f'{RECORDING_DATE}_{RANGE}'
+        )
+        st.checkbox('Enforce max recording year', value=True, key='max_recording_date')
+    elif recording_date_radio == CENTER:
         st.info(
             ''':information_source: Reduces recordings' scores by "Points per year"
             for each year before or after "Center" year'''
@@ -254,22 +278,13 @@ def display_recording_date():
             'Recording Year Center:',
             1900, 2025,
             2020,
-            key='recording_date_center'
+            key=f'{RECORDING_DATE}_{CENTER}'
         )
         st.number_input(
             'Points per year',
             value=1,
-            key='points_per_year'
+            key=POITNS_PER_YEAR
         )
-    elif recording_date_radio == 'range':
-        st.info(''':information_source: Filters out ALL recordings outside stated range''')
-        st.slider(
-            'Recording Date Range:',
-            1900, 2025,
-            (1900, 2025),
-            key='recording_date_range'
-        )
-        st.checkbox('Enforce max recording year', value=True, key='max_recording_date')
 
 def clear():
     for key in st.session_state:
