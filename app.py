@@ -36,13 +36,15 @@ EXPLAIN_TEXT = """
         2. Data is stored database-agnostically via SQLalchemy (see schema below).
         3. Values entered on this webpage are used to query recordings from the database.
             - This includes selecting a score which is a linear sum of match values plus a random factor which will also be exposed to the user.
+    """
 
-    Usage:
-        1. Add any number of artist-related or recording-related tags you like.
-        2. Give each tag as well as each category a weight.
-            - They do not need to be on any particular scale but should be relative to each other for best results.
-        3. Submit at the bottom of the "Options" column.
-        4. Stay tuned for more options like recording length and number of recommendations.
+USAGE = """
+    Usage:\\
+        1. Add any number of artist-related or recording-related tags you like.\\
+        2. Give each tag as well as each category a weight.\\
+            - They do not need to be on any particular scale but should be relative to each other for best results.\\
+        3. Song (recording) length and year options are under "More."\\
+        4. Submit at the bottom of the "Options" column.
     """
 
 
@@ -65,7 +67,9 @@ def main() -> None:
 
     st.title('Special Song Search')
 
-    with st.expander('How Special Song Search works:'):
+    st.info(USAGE)
+
+    with st.expander('About:'):
         st.text(EXPLAIN_TEXT)
         st.markdown(
         """[Github repository](https://github.com/jmlazaro25/special-song-search)""",
@@ -248,7 +252,7 @@ def display_tags(session, tag_type):
 
     st.subheader(f'{tag_type} tags'.title())
     st.number_input(
-        label=f'total {tag_type} tags weight'.title(),
+        label=f'{tag_type} tag weight multiplier'.title(),
         value=1,
         key=weight
     )
